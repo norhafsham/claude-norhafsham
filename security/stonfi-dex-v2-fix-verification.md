@@ -185,62 +185,12 @@ TOB-4 user  final-jetton balance:   96000000000000n -> 96000000000000n   (unchan
 
 The transaction does not bounce and no refund is issued; the user simply loses the swap output.
 The identical flow with a sane `fwdGas` succeeds (the repo's own `should cross-swap on 2 routers`
-test), so the only difference is the forward-gas amount. PoC, added to a copy of
-`tests/ConstProduct.spec.ts` and run with `npx jest -t "POC TOB-STONFI-4"`:
+test), so the only difference is the forward-gas amount.
 
-```ts
-it('POC TOB-STONFI-4: cross-router swap strands mid jettons in router2', async () => {
-    let setup  = await setupDex({ createPool: { amount1: toNano(1000), amount2: toNano(2000) } });
-    let setup2 = await setupDex({
-        createPool: { amount1: toNano(1000), amount2: toNano(4000), name1: "Token2", name2: "Token3" },
-        routerId: 2,
-    });
-
-    const router = setup.router, router2 = setup2.router;
-    const tokenIn = setup.token1, tokenMid = setup.token2, tokenFinal = setup2.token2;
-
-    const routerWalletMid  = await getWalletContract(bc, tokenMid,   router.address);
-    const router2WalletMid = await getWalletContract(bc, tokenMid,   router2.address);
-    const router2WalletOut = await getWalletContract(bc, tokenFinal, router2.address);
-    const walletIn         = await getWalletContract(bc, tokenIn,    deployer.address);
-    const walletFinal      = await getWalletContract(bc, tokenFinal, deployer.address);
-
-    const oldRouter2Mid = await getWalletBalance(router2WalletMid);
-    const oldFinal      = await getWalletBalance(walletFinal);
-
-    // The user asks for a fwd_ton_amount on the mid hop that router1 cannot
-    // afford by the time it pays out -- exactly the report's exploit scenario.
-    const msgResult = await walletIn.sendTransfer(deployer.getSender(), {
-        value: toNano(3),
-        jettonAmount: toNano(1),
-        toAddress: router.address,
-        responseAddress: deployer.address,
-        fwdAmount: toNano("2"),
-        fwdPayload: swapPayload({
-            otherTokenWallet: routerWalletMid.address,
-            receiver: router2.address,
-            minOut: 1n,
-            fwdGas: toNano("1.9"),
-            refundAddress: deployer.address,
-            deadline: initTimestamp + HOUR_IN_SECONDS,
-            customPayload: swapPayload({
-                otherTokenWallet: router2WalletOut.address,
-                receiver: deployer.address,
-                minOut: 1n,
-                refundAddress: deployer.address,
-                deadline: initTimestamp + HOUR_IN_SECONDS
-            })
-        }),
-    });
-
-    expectNotBounced(msgResult.events);
-
-    // no transfer_notification reached router2, so the second leg never ran
-    expect(await getWalletBalance(walletFinal)).toEqual(oldFinal);
-    // ...and the mid jettons are now sitting in router2 with no way out
-    expect(await getWalletBalance(router2WalletMid)).toBeGreaterThan(oldRouter2Mid);
-});
-```
+The PoC is `security/poc/tob-stonfi-4.spec.ts`. It depends on the harness defined inside the
+`describe` block of the project's pool specs (`setupDex`, `bc`, `deployer`, `initTimestamp`,
+`getWalletContract`, `swapPayload`), so it is spliced into a copy of
+`tests/ConstProduct.spec.ts` by `security/poc/apply.py` rather than run on its own.
 
 **Assessment.** The severity rating (Medium, Low difficulty) still fits: no attacker is needed —
 a user or an integrating front-end that quotes a forward-gas value too optimistically burns the
@@ -300,6 +250,8 @@ git checkout af0a955
 npm install --legacy-peer-deps
 npm run build        # compiles every pool variant
 npx jest             # 158/158 pass, ~6 min
-# then add the PoC above to a copy of tests/ConstProduct.spec.ts and:
-npx jest -t "POC TOB-STONFI-4"
+
+# then the TOB-STONFI-4 proof of concept:
+/path/to/security/poc/apply.py .            # writes tests/TOB4Poc.spec.ts
+npx jest tests/TOB4Poc.spec.ts -t "POC TOB-STONFI-4"
 ```
