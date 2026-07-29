@@ -59,6 +59,33 @@ jobs:
         run: npm run typecheck
         working-directory: security/poc
 
+  tradingview-mcp:
+    name: tradingview-mcp (lint + unit tests)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: tradingview-mcp/package-lock.json
+
+      - name: Install
+        run: npm ci
+        working-directory: tradingview-mcp
+
+      - name: Lint
+        run: npm run lint
+        working-directory: tradingview-mcp
+
+      # Deliberately test:unit and not test:all. The latter adds tests/e2e.test.js,
+      # which needs TradingView Desktop reachable over CDP on port 9222 — no runner
+      # has one, so it would fail on every push for reasons unrelated to the change.
+      - name: Unit tests
+        run: npm run test:unit
+        working-directory: tradingview-mcp
+
   upstream:
     name: Upstream contract (network)
     runs-on: ubuntu-latest
