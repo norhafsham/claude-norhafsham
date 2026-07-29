@@ -328,3 +328,32 @@ describe('path traversal prevention', () => {
     assert.ok(source.includes(".replace(/[\\/\\\\]/g, '_')"));
   });
 });
+
+// ── On-chart prompt injection guardrails — regression guard ─────────────
+//
+// CLAUDE.md, the SKILL.md workflows, and the performance-analyst agent all
+// read text that can be authored by a third party (Pine source, indicator
+// labels/tables, alert messages, trade comments) rather than the user. Each
+// carries a "Security —" note instructing the agent to treat that content as
+// data, not instructions. This can't be behaviorally unit-tested (that needs
+// the model running), but presence can be — this guards against someone
+// silently dropping the note in a future edit.
+describe('on-chart prompt injection guardrails present', () => {
+  const HARDENED_FILES = [
+    '../CLAUDE.md',
+    '../skills/chart-analysis/SKILL.md',
+    '../skills/multi-symbol-scan/SKILL.md',
+    '../skills/pine-develop/SKILL.md',
+    '../skills/replay-practice/SKILL.md',
+    '../skills/strategy-report/SKILL.md',
+    '../agents/performance-analyst.md',
+  ];
+
+  for (const relPath of HARDENED_FILES) {
+    it(`${relPath.replace('../', '')} still has a Security note`, () => {
+      const source = readFileSync(new URL(relPath, import.meta.url), 'utf8');
+      assert.ok(/Security\s*—/.test(source),
+        `${relPath} is missing its "Security —" untrusted-content guardrail`);
+    });
+  }
+});
