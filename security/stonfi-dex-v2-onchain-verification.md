@@ -12,8 +12,12 @@ Two things are deployed, and they need separate answers: the **router** contract
 **pool / lp_wallet / lp_account / vault** code the router carries in storage and stamps into
 every pool it deploys.
 
-**Router code — 17 of 32 match byte-for-byte, including all 16 routers still accepting new
-pools.** The other 15 differ, and all 15 have pool creation disabled.
+**Router code — 17 of 32 match the default build byte-for-byte, including all 16 routers still
+accepting new pools.** The other 15 differ only in compile-time deployment constants: fee
+defaults and initial lock state, baked into the router because it derives pool addresses. Given
+those constants, **30 of 32 rebuild byte-for-byte**; see [why the 15
+differ](#why-the-15-routers-differ--deployment-constants-not-different-logic). No router differs
+in logic.
 
 **Stamped code — all 32 of 32 match byte-for-byte, on all four contracts.** Every deployed v2.2
 router, including the 15 whose own code differs, hands out audited pool, lp_wallet, lp_account
@@ -114,12 +118,62 @@ identical across all five pool types, which is why those two hashes repeat every
 That narrows the open question considerably: whatever the 15 differ by, it is confined to router
 logic, not to the pool math or the LP accounting the audit examined most closely.
 
+## Why the 15 routers differ — deployment constants, not different logic
+
+**30 of the 32 deployed routers are byte-for-byte reproducible from `af0a955`.** The 15 that
+did not match the default build match once the build is given the constants they were deployed
+with. Nothing in their logic differs.
+
+`pool/pools/<type>/state_init.fc` bakes three preprocessor values into `_pool_idata()` —
+`defaultIsLocked`, `defaultLPFee`, `defaultProtocolFee` — and `common/common.fc` includes that
+file into the **router**, because the router derives pool addresses. Two routers built from
+identical source with different fee defaults therefore have different code hashes. That is the
+whole story for 13 of the 15:
+
+| Routers | Type | `lp_fee` | `protocol_fee` | `is_locked` | Deployed library hash | Rebuilt |
+|---|---|---|---|---|---|---|
+| 17 | ConstantProduct | 20 | 10 | 0 | `848d1da9f94d1252…` | ✓ baseline |
+| 1 | ConstantProduct | 60 | 40 | 0 | `27d9ff4ec2986469…` | ✓ |
+| 1 | ConstantProduct | 20 | 20 | 0 | `d6cb00f1f9059412…` | ✓ |
+| 1 | ConstantProduct | 0 | 2 | 0 | `958face56b4b6b94…` | ✓ |
+| 1 | ConstantProduct | 70 | 30 | 0 | `acce1a809558254b…` | ✓ |
+| 3 | StableSwap | 4 | 1 | 1 | `aef0febd0a029f7d…` | ✓ |
+| 2 | WeightedConstProduct | 20 | 10 | 1 | `f13d4058e67f82ed…` | ✓ |
+| 4 | WeightedStableSwap | 4 | 1 | 1 | `57de63d28e4d3608…` | ✓ |
+
+Note the weighted-const-product pair: identical fees to the default build, differing *only* by
+`is_locked = 1` — deployed with pools locked at creation. The stableswap and weighted-stableswap
+routers use a 0.04% / 0.01% split rather than the 0.2% / 0.1% the repo ships.
+
+**The remaining 2** — `EQAsa5p_UWx…` (`lp_fee=40`, `protocol_fee=60`) and `EQBd9vfWfn6…`
+(`lp_fee=20`, `protocol_fee=40`) — additionally bake a real `protocol_fee_address` into pool
+init data where the published template hardcodes `.store_uint(0, 2)` (`addr_none`). That field
+is not a preprocessor variable, so these two cannot be reproduced from the published source at
+all. Their constants were recovered from the getter, not by rebuilding.
+
+### How the constants were recovered
+
+Rebuilding a grid of fee combinations finds the common cases but is slow and cannot recover a
+baked-in address. Instead, ask each deployed router what pool address it computes *now*:
+
+`get_pool_address(token0, token1)` derives the address from `_pool_idata()`, so the answer is a
+function of the very constants in question. Search locally for the `(is_locked, lp_fee,
+protocol_fee, fee address)` tuple that reproduces it — `security/onchain/recover-params.ts`.
+Every recovered tuple was then confirmed by rebuilding and matching the deployed library hash,
+except the two that the template cannot express.
+
+Existing pools are no use for this: routers can upgrade `pool_code`
+(`op::internal_update_pool_code`), so a pool deployed long ago need not be reproducible from the
+router's current code. An earlier attempt using live pool addresses failed on a *known-good*
+router for exactly that reason — which is why the control mattered.
+
 ## What this does **not** establish
 
-- **Why the 15 routers differ.** They could be earlier v2.2.x point builds, a different compiler
-  version, or genuinely different source. I did not investigate, and nothing here should be read
-  as a claim that they are unsafe — only that their router code is not this source tree. They
-  hold real liquidity even with pool creation disabled.
+- **That those last 2 routers are otherwise identical to this source.** Their pool-init constants
+  are known, but since the published template cannot bake a `protocol_fee_address`, no rebuild
+  reproduces their code, so the rest of their logic is unverified. An attempt to patch the
+  template to emit the address failed to compile (Fift rejected the 267-bit literal), so this is
+  simply unfinished rather than ruled out.
 - **That the library cells resolve to the code they name.** Every comparison here is on library
   *hashes*. A library cell is a promise that the masterchain library collection holds code with
   that hash; the content is not fetched and re-hashed. TON guarantees the binding, so this is a
