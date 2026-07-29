@@ -8,13 +8,20 @@ Checked: 2026-07-29. Result reproduced twice, identical both times.
 
 ## Answer
 
-**17 of the 32 deployed v2.2 routers run byte-for-byte the audited source — and that includes
-all 16 routers still accepting new pools.** The remaining 15 differ, and all 15 have pool
-creation disabled.
+Two things are deployed, and they need separate answers: the **router** contract itself, and the
+**pool / lp_wallet / lp_account / vault** code the router carries in storage and stamps into
+every pool it deploys.
+
+**Router code — 17 of 32 match byte-for-byte, including all 16 routers still accepting new
+pools.** The other 15 differ, and all 15 have pool creation disabled.
+
+**Stamped code — all 32 of 32 match byte-for-byte, on all four contracts.** Every deployed v2.2
+router, including the 15 whose own code differs, hands out audited pool, lp_wallet, lp_account
+and vault code.
 
 So the fixes verified in source, including the `original_caller` fix for the High-severity
-finding, are the code actually executing on every v2.2 router that STON.fi is still
-provisioning pools on.
+finding, are the code actually executing on every v2.2 router STON.fi is still provisioning
+pools on — and every pool spawned by *any* v2.2 router runs audited pool code.
 
 ## The trap: deployed code is a library reference, not code
 
@@ -44,11 +51,15 @@ I hit this myself: the first comparison showed zero matches across all 32 router
 1. Enumerate deployed routers from STON.fi's own registry, `https://api.ston.fi/v1/routers`,
    filtered to `major_version 2, minor_version 2` — 32 routers, across four pool types
    (23 ConstantProduct, 3 StableSwap, 2 WeightedConstProduct, 4 WeightedStableSwap).
-2. Fetch each account's code BoC from `toncenter.com/api/v3/accountStates`, confirm it is an
-   exotic library cell, and extract the library hash. All 32 are library cells.
-3. Build every pool-type variant locally from `af0a955` and record `Cell.hash()` of each
+2. Fetch each account's code and data BoC from `toncenter.com/api/v3/accountStates`, confirm the
+   code is an exotic library cell, and extract the library hash. All 32 are library cells.
+3. Walk each router's data cell to `_static` and pull the four stamped code refs, which are
+   library cells as well — `security/onchain/boc.py`, a read-only BoC reader written for this
+   rather than pulling in a node_modules tree on the chain side. Its output was checked against
+   `@ton/core` on a known router before being trusted.
+4. Build every pool-type variant locally from `af0a955` and record `Cell.hash()` of each
    compiled contract — `security/onchain/hashes.ts`.
-4. Compare — `security/onchain/verify.py`.
+5. Compare — `security/onchain/verify.py`.
 
 The build is deterministic given the toolchain: FunC **0.4.4** (funcfiftlib `ffe0a1c6`,
 2024-03-27), which is what the repo's pinned `@ton-community/func-js@0.7.0` ships. Preprocessor
@@ -79,16 +90,40 @@ Local Router code-cell hashes at `af0a955`:
 The split lines up exactly with operational status: every router still taking new pools is on
 the audited code, and every router that is not matches nothing in this source tree.
 
+## The code routers stamp into their pools
+
+A router does not just run its own code — it holds `jetton_lp_wallet_code`, `pool_code`,
+`lp_account_code` and `vault_code` in the `_static` ref of its data cell
+(`contracts/router/storage.fc`) and stamps them into every pool, LP account and vault it
+deploys. A matching router is not on its own proof that the pools it spawns are audited, so
+these are checked separately. They are library cells too.
+
+| Type | Routers | Router code | Stamped code (all four) |
+|---|---|---|---|
+| ConstantProduct | 17 | matches | **all 4 match** |
+| ConstantProduct | 6 | differs | **all 4 match** |
+| StableSwap | 3 | differs | **all 4 match** |
+| WeightedConstProduct | 2 | differs | **all 4 match** |
+| WeightedStableSwap | 4 | differs | **all 4 match** |
+
+Every router hands out audited code, and each does so for its own pool type — the stableswap
+routers carry the `stableswap` pool build, the weighted ones carry theirs, and so on. The 15
+routers that diverge diverge *only* in the router contract. `lp_wallet` and `vault` code is
+identical across all five pool types, which is why those two hashes repeat everywhere.
+
+That narrows the open question considerably: whatever the 15 differ by, it is confined to router
+logic, not to the pool math or the LP accounting the audit examined most closely.
+
 ## What this does **not** establish
 
-- **Why the other 15 differ.** They could be earlier v2.2.x point builds, a different compiler
+- **Why the 15 routers differ.** They could be earlier v2.2.x point builds, a different compiler
   version, or genuinely different source. I did not investigate, and nothing here should be read
-  as a claim that they are unsafe — only that they are not this source tree. They hold real
-  liquidity even with pool creation disabled, so their code is worth pinning down separately.
-- **Pool, lp_account, lp_wallet, and vault code.** Those are separate library cells held in
-  router storage and were not compared. A matching router is not by itself proof that the pools
-  it spawns run audited code. This is the obvious next check, and the local hashes for all four
-  are already recorded by `hashes.ts`.
+  as a claim that they are unsafe — only that their router code is not this source tree. They
+  hold real liquidity even with pool creation disabled.
+- **That the library cells resolve to the code they name.** Every comparison here is on library
+  *hashes*. A library cell is a promise that the masterchain library collection holds code with
+  that hash; the content is not fetched and re-hashed. TON guarantees the binding, so this is a
+  theoretical gap rather than a practical one, but it is not independently verified here.
 - **Anything about v2.1 or v1.** 19 older routers are live and out of scope here.
 
 ## Reproducing

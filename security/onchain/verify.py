@@ -14,6 +14,11 @@ library hash carried inside that cell.
     │ magic      │ flags    │ len  │    │ exotic, 33B  │ type 0x02 = library   │
     └────────────┴──────────┴──────┴────┴──────┴──────┴────────────────────────┘
 
+The same applies to the pool, lp_wallet, lp_account and vault code the router keeps
+in its storage, which is what it stamps into every pool it deploys. Those live in
+the `_static` ref of the router's data cell (see contracts/router/storage.fc) and are
+library cells too, so both halves of the deployment are checked here.
+
 Usage:
     ./hashes.ts must have been run in the checkout first (see that file).
     ./verify.py /path/to/dex-core-v2
@@ -28,9 +33,15 @@ import time
 import urllib.parse
 from pathlib import Path
 
+import boc
+
 ROUTERS_API = "https://api.ston.fi/v1/routers"
 TONCENTER = "https://toncenter.com/api/v3/accountStates"
 TARGET_VERSION = (2, 2)
+
+# Order of the code refs inside the router's `_static` cell, per router/storage.fc.
+# Names match the keys hashes.ts writes into build/local_hashes.json.
+STATIC_CODE_ORDER = ["LPWallet", "Pool", "LPAccount", "Vault"]
 
 # api.ston.fi router_type -> dex-core-v2 POOL_TYPES name
 TYPE_MAP = {
@@ -68,27 +79,37 @@ def fetch_states(addresses: list[str], attempts: int = 4) -> tuple[dict, dict]:
         book = d.get("address_book", {})
         raw_of = {v["user_friendly"]: k for k, v in book.items()}
         missing = [
-            a for a in addresses if not (states.get(raw_of.get(a, ""), {}) or {}).get("code_boc")
+            a
+            for a in addresses
+            if not all(
+                (states.get(raw_of.get(a, ""), {}) or {}).get(k) for k in ("code_boc", "data_boc")
+            )
         ]
         if not missing:
             return states, book
         time.sleep(2**attempt)
     raise SystemExit(
-        f"toncenter returned no code for {len(missing)} address(es) after {attempts} "
-        f"attempts (e.g. {missing[0]}). Rerun, or set a TONCENTER API key — do not "
-        f"read a missing response as a code difference."
+        f"toncenter returned incomplete state for {len(missing)} address(es) after "
+        f"{attempts} attempts (e.g. {missing[0]}). Rerun, or set a TONCENTER API key — "
+        f"do not read a missing response as a code difference."
     )
 
 
 def library_hash(code_b64: str) -> str | None:
     """The 32-byte library hash inside a code cell, or None if the code is inline."""
-    raw = base64.b64decode(code_b64)
-    if len(raw) != 46:
-        return None
-    d1, ctype = raw[11], raw[13]
-    if not d1 & 0x08 or ctype != 0x02:  # not an exotic library cell
-        return None
-    return raw[14:46].hex()
+    return boc.from_base64(code_b64).library_hash()
+
+
+def storage_code_hashes(data_b64: str) -> dict[str, str | None]:
+    """Library hashes of the four contract codes the router stamps into its pools.
+
+    Router data is `is_locked:bool admin:MsgAddress temp_upgrade:^Cell _static:^Cell
+    upgrade_pool_code:^Cell`, and `_static` holds the code refs in STATIC_CODE_ORDER.
+    """
+    static = boc.from_base64(data_b64).refs[1]
+    return {
+        name: cell.library_hash() for name, cell in zip(STATIC_CODE_ORDER, static.refs, strict=True)
+    }
 
 
 def deployed_routers() -> list[dict]:
@@ -122,13 +143,14 @@ def main() -> None:
 
     rows = []
     for r in routers:
-        code = states[r["address"]].get("code_boc")
+        st = states[r["address"]]
         rows.append(
             {
                 "address": r["address"],
                 "type": r["router_type"],
                 "creation_enabled": r["pool_creation_enabled"],
-                "lib_hash": library_hash(code) if code else None,
+                "lib_hash": library_hash(st["code_boc"]),
+                "storage": storage_code_hashes(st["data_boc"]),
             }
         )
 
@@ -165,6 +187,42 @@ def main() -> None:
         f"run exactly this source; {differ} differ."
     )
     print(f"{live_ok}/{live_all} routers still accepting new pools run exactly this source.")
+
+    # --- the code each router stamps into the pools it deploys ---
+    print("\npool / lp_wallet / lp_account / vault code held in router storage:")
+    buckets = collections.defaultdict(list)
+    for x in rows:
+        expected = local.get(TYPE_MAP.get(x["type"]), {})
+        verdict = tuple(
+            (name, x["storage"][name] == base64.b64decode(expected[name]).hex())
+            if name in expected
+            else (name, False)
+            for name in STATIC_CODE_ORDER
+        )
+        router_ok = want.get(x["lib_hash"]) == TYPE_MAP.get(x["type"])
+        buckets[(x["type"], router_ok, verdict)].append(x)
+
+    for (rtype, router_ok, verdict), group in sorted(
+        buckets.items(), key=lambda kv: (kv[0][0], -len(kv[1]))
+    ):
+        good = [n for n, ok in verdict if ok]
+        bad = [n for n, ok in verdict if not ok]
+        state = "all 4 match" if not bad else f"matches {good or '-'}, differs {bad}"
+        print(
+            f"  {rtype:22} x{len(group):<3} router {'matches' if router_ok else 'differs':7}  "
+            f"→ {state}"
+        )
+
+    full = sum(
+        1
+        for x in rows
+        if want.get(x["lib_hash"]) == TYPE_MAP.get(x["type"])
+        and all(
+            x["storage"][n] == base64.b64decode(local[TYPE_MAP[x["type"]]][n]).hex()
+            for n in STATIC_CODE_ORDER
+        )
+    )
+    print(f"\n{full}/{total} routers match this source on the router *and* all four stamped codes.")
 
 
 if __name__ == "__main__":
