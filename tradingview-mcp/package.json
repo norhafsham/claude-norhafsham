@@ -2,6 +2,10 @@
   "name": "tradingview-mcp",
   "version": "1.0.0",
   "description": "MCP bridge for TradingView Desktop via Chrome DevTools Protocol",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  },
   "type": "module",
   "main": "src/server.js",
   "bin": {
