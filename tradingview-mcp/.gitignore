@@ -5,3 +5,9 @@ temp_*
 *.log
 discovery-log.json
 rules.json
+
+# Editor / OS cruft
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
