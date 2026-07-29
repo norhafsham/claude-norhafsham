@@ -12,6 +12,9 @@ This tool is a **local bridge** between Claude Code and the TradingView Desktop 
 - Adding CLI commands that mirror existing MCP tool capabilities
 - Bug fixes and test coverage
 - Documentation improvements
+- Hardening `CLAUDE.md`, `SKILL.md` workflows, and `agents/*.md` against on-chart prompt
+  injection (see `SECURITY.md`'s scope) — third-party-authored text (Pine source, labels,
+  alert messages, trade comments) steering the agent
 - Pine Script development workflow enhancements
 - UI automation for the locally running Desktop app
 
