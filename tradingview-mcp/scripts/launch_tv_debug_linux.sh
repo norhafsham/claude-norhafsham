@@ -31,7 +31,7 @@ fi
 
 # Fallback: find in common dirs
 if [ -z "$APP" ]; then
-  APP=$(find /opt /usr/local /snap "$HOME/.local" -name "tradingview" -o -name "TradingView" -type f -executable 2>/dev/null | head -1)
+  APP=$(find /opt /usr/local /snap "$HOME/.local" \( -name "tradingview" -o -name "TradingView" \) -type f -executable 2>/dev/null | head -1)
 fi
 
 if [ -z "$APP" ] || [ ! -f "$APP" ]; then
