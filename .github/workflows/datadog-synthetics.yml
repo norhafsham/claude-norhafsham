@@ -11,13 +11,18 @@
 # 1. Add your Datadog API (DD_API_KEY) and Application Key (DD_APP_KEY) as secrets to your GitHub repository. For more information, see: https://docs.datadoghq.com/account_management/api-app-keys/.
 # 2. Start using the action within your workflow
 
+# NOTE: this repository holds security research notes and a proof-of-concept test
+# fragment -- there is no deployed service here for a synthetic test to exercise.
+# Left in place as scaffolding, but manual-dispatch only: on push it would either
+# fail every build (DD_API_KEY / DD_APP_KEY are not configured) or pass without
+# asserting anything (the `tag:e2e-tests` query matches no tests). Before wiring it
+# back to push/pull_request, add the secrets and set fail_on_missing_tests so an
+# empty result set cannot report green. Repository CI lives in ci.yml.
+
 name: Run Datadog Synthetic tests
 
 on:
-  push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
+  workflow_dispatch:
 
 jobs:
   build:

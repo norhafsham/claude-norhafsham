@@ -1,0 +1,22 @@
+[project]
+name = "claude-norhafsham"
+version = "0.1.0"
+description = "Security research notes and proof-of-concept artifacts"
+requires-python = ">=3.11"
+
+[dependency-groups]
+dev = ["pytest>=8.0", "ruff>=0.6"]
+
+[tool.pytest.ini_options]
+testpaths = ["security/poc/tests"]
+# Network tests hit raw.githubusercontent.com to check the pinned upstream spec.
+# Deselected by default; run them with `pytest -m network`.
+addopts = "-q -m 'not network'"
+markers = ["network: fetches the pinned ston-fi/dex-core-v2 revision"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "SIM"]

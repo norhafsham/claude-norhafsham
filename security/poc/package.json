@@ -1,0 +1,12 @@
+{
+  "name": "stonfi-tob4-poc",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Type-checking harness for the TOB-STONFI-4 proof-of-concept fragment",
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3"
+  }
+}
