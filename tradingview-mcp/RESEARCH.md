@@ -81,3 +81,6 @@ When streaming data changes faster than the agent can respond, the agent's reaso
 - **Toolformer: Language Models Can Teach Themselves to Use Tools** — Schick et al. (2023). Foundational work on LLMs learning to use external tools.
 - **FinGPT: Open-Source Financial Large Language Models** — Yang et al. (2023). Open-source LLMs fine-tuned for financial applications.
 - **Can Large Language Models Provide Useful Advice on How to Invest?** — Pelster & Val (2024). Studies LLM capability in financial reasoning.
+- **TradingAgents: Multi-Agents LLM Financial Trading Framework** — Xiao et al. (2024). Specialized-role multi-agent framework (fundamental/sentiment/technical analysts, bull/bear debate) directly relevant to this project's multi-symbol-scan and strategy-report workflows.
+- **Agentic Trading: When LLM Agents Meet Financial Markets** — Xia et al. (2026). Evidence-map survey of 77 studies on LLM trading agents, the most current overview of the space.
+- **Prompt Injection Attacks in Large Language Models and AI Agent Systems: A Comprehensive Review of Vulnerabilities, Attack Vectors, and Defense Mechanisms** — MDPI (2025). Surveys indirect prompt injection, the threat class this project's `CLAUDE.md`, skills, and `performance-analyst` agent were hardened against.
