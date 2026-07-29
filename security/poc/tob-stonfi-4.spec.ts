@@ -14,9 +14,13 @@
  *   router2 mid-jetton balance: 1000000000000n -> 1001992015968n  (+1.992 Token2, stranded)
  *   user  final-jetton balance: 96000000000000n -> 96000000000000n (unchanged, leg 2 never ran)
  *
- * This is not a standalone spec: it relies on the harness defined inside the
- * `describe` block of the project's own pool specs (setupDex, bc, deployer,
- * initTimestamp, getWalletContract, getWalletBalance, swapPayload, expectNotBounced).
+ * This is not a standalone spec: it relies on the host spec's imports and on the
+ * harness defined inside the `describe` block of the project's own pool specs.
+ * Required identifiers:
+ *   HOUR_IN_SECONDS, bc, deployer, expectNotBounced, getWalletBalance,
+ *   getWalletContract, initTimestamp, setupDex, swapPayload, toNano
+ * (declared in harness.d.ts, which is what CI type-checks this file against).
+ *
  * Run ./apply.py to splice it into a copy of tests/ConstProduct.spec.ts, or paste the
  * block below next to the repo's `should cross-swap on 2 routers` test by hand.
  */

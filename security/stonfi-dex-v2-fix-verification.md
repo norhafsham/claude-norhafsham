@@ -187,10 +187,13 @@ The transaction does not bounce and no refund is issued; the user simply loses t
 The identical flow with a sane `fwdGas` succeeds (the repo's own `should cross-swap on 2 routers`
 test), so the only difference is the forward-gas amount.
 
-The PoC is `security/poc/tob-stonfi-4.spec.ts`. It depends on the harness defined inside the
-`describe` block of the project's pool specs (`setupDex`, `bc`, `deployer`, `initTimestamp`,
-`getWalletContract`, `swapPayload`), so it is spliced into a copy of
+The PoC is `security/poc/tob-stonfi-4.spec.ts`. It depends on the host spec's imports and on
+the harness defined inside the `describe` block of the project's pool specs — `HOUR_IN_SECONDS`,
+`bc`, `deployer`, `expectNotBounced`, `getWalletBalance`, `getWalletContract`, `initTimestamp`,
+`setupDex`, `swapPayload`, `toNano` — so it is spliced into a copy of
 `tests/ConstProduct.spec.ts` by `security/poc/apply.py` rather than run on its own.
+Those identifiers are declared in `security/poc/harness.d.ts`, which CI type-checks the PoC
+against; `security/poc/tests/test_apply.py` fails if this list and that file drift apart.
 
 **Assessment.** The severity rating (Medium, Low difficulty) still fits: no attacker is needed —
 a user or an integrating front-end that quotes a forward-gas value too optimistically burns the

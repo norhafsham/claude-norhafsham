@@ -1,0 +1,12 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "lib": ["ES2020"],
+    "types": [],
+    "strict": true,
+    "noEmit": true,
+    "noUnusedLocals": false,
+    "forceConsistentCasingInFileNames": true
+  },
+  "files": ["harness.d.ts", "tob-stonfi-4.spec.ts"]
+}

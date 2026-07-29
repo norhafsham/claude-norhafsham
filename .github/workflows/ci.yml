@@ -1,0 +1,56 @@
+name: CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  python:
+    name: apply.py (pytest + ruff)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dev tooling
+        run: python -m pip install --upgrade pip pytest ruff
+
+      - name: Lint
+        run: ruff check .
+
+      - name: Format check
+        run: ruff format --check .
+
+      - name: Test
+        run: pytest
+
+  typescript:
+    name: PoC typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: security/poc/package-lock.json
+
+      - name: Install
+        run: npm ci
+        working-directory: security/poc
+
+      # The PoC is a fragment spliced into an upstream spec, so nothing here can
+      # run it. Type-checking it against harness.d.ts is what stops a typo from
+      # surviving until someone clones dex-core-v2 and waits out a 6 minute suite.
+      - name: Typecheck the PoC against harness.d.ts
+        run: npm run typecheck
+        working-directory: security/poc
