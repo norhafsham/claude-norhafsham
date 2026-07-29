@@ -4,6 +4,11 @@ This file is a step-by-step guide for Claude Code (or any LLM agent) to install 
 
 ## Step 1: Clone and Install
 
+**Check for an existing checkout first.** If a `tradingview-mcp/` directory is already present
+in the current repo or working tree (e.g. this project vendors it), use that checkout instead
+of cloning a fresh copy — a vendored copy may carry local fixes that a fresh clone would
+silently discard. Only clone if no local checkout exists.
+
 ```bash
 git clone https://github.com/tradesdontlie/tradingview-mcp.git ~/tradingview-mcp
 cd ~/tradingview-mcp
