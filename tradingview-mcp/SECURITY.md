@@ -16,6 +16,9 @@ This project connects to a locally running TradingView Desktop instance via Chro
 - Unintended data exposure through tool outputs
 - Credential or session token leakage
 - Vulnerabilities in the MCP server or CLI that could be exploited locally
+- Prompt injection via untrusted on-chart content — Pine script source/console output,
+  indicator-drawn labels/tables, alert messages, or strategy/trade comments authored by a
+  third party (e.g. a publicly published script) steering the agent into unintended actions
 
 ## Out of Scope
 
