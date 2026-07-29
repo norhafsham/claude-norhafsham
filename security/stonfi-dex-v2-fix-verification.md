@@ -256,8 +256,10 @@ that surfaces as a failing build rather than as a confusing error for the next r
 
 - Whether the fixes landed via the "PR 1" Appendix E cites, and whether anything else changed
   alongside them — the squashed history hides it.
-- Whether the deployed mainnet contracts match this v2.2 source. Not checked; verifying that
-  requires comparing on-chain code hashes against a local build.
+- ~~Whether the deployed mainnet contracts match this v2.2 source.~~ **Settled for the routers**
+  in [`stonfi-dex-v2-onchain-verification.md`](./stonfi-dex-v2-onchain-verification.md): 17 of 32
+  deployed v2.2 routers run this source byte-for-byte, including all 16 that still accept new
+  pools. Pool / lp_account / lp_wallet library code is still uncompared.
 - The Funcbox library beyond `math::int::sqrt` — out of scope for ToB too, per their coverage
   limitations, and out of scope here.
 
