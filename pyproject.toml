@@ -9,7 +9,10 @@ dev = ["pytest>=8.0", "ruff>=0.6"]
 
 [tool.pytest.ini_options]
 testpaths = ["security/poc/tests"]
-addopts = "-q"
+# Network tests hit raw.githubusercontent.com to check the pinned upstream spec.
+# Deselected by default; run them with `pytest -m network`.
+addopts = "-q -m 'not network'"
+markers = ["network: fetches the pinned ston-fi/dex-core-v2 revision"]
 
 [tool.ruff]
 target-version = "py311"

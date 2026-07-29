@@ -176,21 +176,30 @@ branch, and the up-front gas check in `route_dex_messages`
 `fwd_ton_amount` out of the nested `custom_payload`.
 
 **Reproduced.** Using the project's own harness, a cross-router swap that requests a mid-hop
-`fwd_ton_amount` larger than what remains at payout time strands the intermediate jettons:
+`fwd_ton_amount` larger than what remains at payout time strands the intermediate jettons. The
+PoC runs the *same* swap twice, differing only in that one value, and measures where the money
+went. Exact deltas, in nanounits, against `af0a955`:
 
-```
-TOB-4 router2 mid-jetton balance: 1000000000000n -> 1001992015968n   (+1.992 Token2, stranded)
-TOB-4 user  final-jetton balance:   96000000000000n -> 96000000000000n   (unchanged — leg 2 never ran)
-```
+| | control (`fwdGas` 1 TON) | exploit (`fwdGas` 1.9 TON) |
+|---|---|---|
+| Token1 spent by user | −1000000000 | −1000000000 |
+| router2's Token2 wallet | +1992015968 | +1992015968 |
+| **pool2's Token2 reserve** | **+1992015968** | **+0** |
+| Token3 received by user | +7928413675 | +0 |
+
+Note what is *not* the discriminator: router2's jetton balance rises identically in both cases,
+because this DEX holds all jettons at the router. The discriminator is the third row — whether
+pool2's reserves account for that balance. In the control they do, and the user is paid. In the
+exploit they do not, so router2 holds 1.992 Token2 that no pool has a claim to and no code path
+can move. The user paid the same 1 Token1 either way.
 
 The transaction does not bounce and no refund is issued; the user simply loses the swap output.
-The identical flow with a sane `fwdGas` succeeds (the repo's own `should cross-swap on 2 routers`
-test), so the only difference is the forward-gas amount.
+The only difference between the two rows is the forward-gas amount.
 
 The PoC is `security/poc/tob-stonfi-4.spec.ts`. It depends on the host spec's imports and on
 the harness defined inside the `describe` block of the project's pool specs — `HOUR_IN_SECONDS`,
-`bc`, `deployer`, `expectNotBounced`, `getWalletBalance`, `getWalletContract`, `initTimestamp`,
-`setupDex`, `swapPayload`, `toNano` — so it is spliced into a copy of
+`Pool`, `bc`, `deployer`, `expectNotBounced`, `getWalletBalance`, `getWalletContract`,
+`initTimestamp`, `setupDex`, `swapPayload`, `toNano` — so it is spliced into a copy of
 `tests/ConstProduct.spec.ts` by `security/poc/apply.py` rather than run on its own.
 Those identifiers are declared in `security/poc/harness.d.ts`, which CI type-checks the PoC
 against; `security/poc/tests/test_apply.py` fails if this list and that file drift apart.
@@ -234,7 +243,14 @@ Newton iteration, so the tighter threshold does not convert precision loss into
 (e.g. `tests/ConstProduct.spec.ts:178,902`), but **no test ever passes it** — every cross-router
 test uses the 1 TON default. The one knob that would exercise TOB-STONFI-4 exists and is never
 turned. Adding a case that asserts the current (lossy) behaviour would at least make the
-accepted risk visible in the suite.
+accepted risk visible in the suite; the PoC's control/exploit pair is that case, and turning the
+knob is the whole of the difference between them.
+
+That claim is now checked rather than asserted: `security/poc/tests/test_upstream_contract.py`
+fetches `tests/ConstProduct.spec.ts` at the pinned commit and fails if `fwdGas2` ever appears
+anywhere but its declaration and the one line that threads it — i.e. if upstream adds coverage.
+The same job pins the file's SHA-256, so if the splice target changes underneath this write-up,
+that surfaces as a failing build rather than as a confusing error for the next reader.
 
 ## Open items the public repo cannot settle
 
@@ -255,6 +271,18 @@ npm run build        # compiles every pool variant
 npx jest             # 158/158 pass, ~6 min
 
 # then the TOB-STONFI-4 proof of concept:
-/path/to/security/poc/apply.py .            # writes tests/TOB4Poc.spec.ts
+/path/to/security/poc/apply.py .            # writes tests/TOB4Poc.spec.ts (--force to overwrite)
 npx jest tests/TOB4Poc.spec.ts -t "POC TOB-STONFI-4"
+```
+
+Both PoC cases pass at `af0a955`: the control completes the swap, the exploit strands the
+jettons. Last re-run 2026-07-29 (~15 s for the pair, after the ~6 min build).
+
+The splicer and the assumptions it makes about upstream have their own checks, which need no
+`dex-core-v2` checkout:
+
+```sh
+pytest              # apply.py unit tests
+pytest -m network   # pinned-upstream contract tests (fetches raw.githubusercontent.com)
+npm ci --prefix security/poc && npm run typecheck --prefix security/poc
 ```

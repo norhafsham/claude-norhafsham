@@ -8,12 +8,10 @@ to guess.
 """
 
 import re
-from pathlib import Path
 
 import pytest
+from conftest import POC_DIR, REPO_ROOT, declared_harness_symbols
 
-POC_DIR = Path(__file__).resolve().parent.parent
-REPO_ROOT = POC_DIR.parent.parent
 POC_MARKER = "it('POC TOB-STONFI-4"
 
 GOOD_HOST = """\
@@ -245,20 +243,27 @@ def test_preserves_lf_line_endings(apply_mod, tmp_path):
 
 def test_poc_block_strips_the_explanatory_header(apply_mod):
     block = apply_mod.poc_block()
-    assert not block.lstrip().startswith("/**")
-    assert "Observed output:" not in block
-    assert block.lstrip().startswith("it('POC TOB-STONFI-4")
+    assert "Observed against af0a955" not in block, "explanatory header leaked into the splice"
+    assert "const tob4CrossRouterSwap" in block
+    assert block.count(POC_MARKER) == 2, "expected the exploit case and its control"
+
+
+def test_poc_ships_a_control_case_next_to_the_exploit(apply_mod):
+    """The finding is 'one parameter turns a working swap into a silent loss'.
+
+    Without the control in the same file, a reader cannot see that the two cases
+    are otherwise identical -- and a regression that broke the swap outright would
+    still satisfy the exploit's assertions.
+    """
+    block = apply_mod.poc_block()
+    assert "(control)" in block
+    assert "const tob4CrossRouterSwap = async" in block, "shared driver missing"
+    assert block.count("await tob4CrossRouterSwap(") == 2, "expected exactly two call sites"
 
 
 # --- the harness dependency list must not drift ---------------------------------
 # harness.d.ts is the canonical list: it is what CI type-checks the PoC against.
 # The prose in the PoC header and in the write-up has to agree with it.
-
-
-def declared_harness_symbols():
-    text = (POC_DIR / "harness.d.ts").read_text()
-    borrowed = text.split("--- ambient globals")[0]
-    return set(re.findall(r"declare (?:const|function) (\w+)", borrowed))
 
 
 def test_harness_declarations_match_the_poc_header():

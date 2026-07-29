@@ -19,6 +19,10 @@ ruff check . && ruff format --check . && pytest
 # the PoC fragment: type-checked against security/poc/harness.d.ts
 npm ci --prefix security/poc
 npm run typecheck --prefix security/poc
+
+# contract tests against the pinned ston-fi/dex-core-v2 revision (needs network;
+# deselected by default). Fails if upstream drifts from what the write-up verified.
+pytest -m network
 ```
 
 The PoC cannot be executed here — it is a fragment that borrows its harness from the

@@ -30,7 +30,9 @@ declare function toNano(value: number | string): bigint;
 declare const HOUR_IN_SECONDS: number;
 
 /** The sandbox blockchain the host spec sets up in `beforeEach`. */
-declare const bc: Opaque;
+declare const bc: {
+  openContract<T>(contract: T): T;
+};
 
 /** Blockchain timestamp captured at setup; swap deadlines are relative to it. */
 declare const initTimestamp: number;
@@ -40,11 +42,41 @@ declare const deployer: {
   getSender(): Opaque;
 };
 
+interface RouterContract {
+  address: Opaque;
+  getPoolAddress(opts: {
+    firstWalletAddress: Opaque;
+    secondWalletAddress: Opaque;
+  }): Promise<Opaque>;
+}
+
 interface SetupDexResult {
-  router: { address: Opaque };
+  router: RouterContract;
   token1: Opaque;
   token2: Opaque;
 }
+
+/** A TON address, of which the PoC only needs the equality check. */
+interface AddressLike {
+  equals(other: Opaque): boolean;
+}
+
+/** `get_pool_data`, as decoded by wrappers/Pool.ts. */
+interface PoolData {
+  leftReserve: bigint;
+  rightReserve: bigint;
+  leftJettonAddress: AddressLike;
+  rightJettonAddress: AddressLike;
+}
+
+interface PoolContract {
+  getPoolData(): Promise<PoolData>;
+}
+
+/** `PoolCPI as Pool` in the host spec's imports. */
+declare const Pool: {
+  createFromAddress(address: Opaque): PoolContract;
+};
 
 declare function setupDex(opts: {
   createPool: {
@@ -79,15 +111,21 @@ declare function getWalletContract(
 
 declare function getWalletBalance(wallet: JettonWallet): Promise<bigint>;
 
+/** Mirrors wrappers/Router.ts:125 at af0a955, including which fields are optional. */
 declare function swapPayload(opts: {
   otherTokenWallet: Opaque;
   receiver: Opaque;
-  minOut: bigint;
-  refundAddress: Opaque;
-  deadline: number;
+  minOut?: bigint;
   /** Forward TON attached to this hop. The knob TOB-STONFI-4 turns. */
   fwdGas?: bigint;
+  refundFwdGas?: bigint;
+  refAddress?: Opaque;
+  refundAddress: Opaque;
+  excessesAddress?: Opaque;
+  deadline: number;
   customPayload?: Opaque;
+  refundPayload?: Opaque;
+  refFee?: bigint;
 }): Opaque;
 
 declare function expectNotBounced(events: Opaque[]): void;
