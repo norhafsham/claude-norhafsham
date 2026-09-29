@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "triton-one-docs": {
+      "type": "http",
+      "url": "https://docs.triton.one/~gitbook/mcp"
+    }
+  }
+}
