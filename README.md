@@ -15,6 +15,14 @@ Alongside the research, one vendored tool:
   TradingView Desktop over the Chrome DevTools Protocol. It is a full checkout with
   upstream history removed, not a submodule, so changes here do not flow either way.
 
+And one piece of agent configuration:
+
+- [`.mcp.json`](.mcp.json) — registers the [Triton One
+  documentation](https://docs.triton.one) MCP server for Claude Code sessions opened
+  on this repo. It is a read-only HTTP endpoint that takes no credentials. Project
+  servers are approved once per user, so the first `claude` run here prompts before
+  the server is loaded.
+
 ## Checks
 
 CI (`.github/workflows/ci.yml`) runs all of these on every push and pull request.
