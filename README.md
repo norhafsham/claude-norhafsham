@@ -17,11 +17,14 @@ Alongside the research, one vendored tool:
 
 And one piece of agent configuration:
 
-- [`.mcp.json`](.mcp.json) — registers the [Triton One
-  documentation](https://docs.triton.one) MCP server for Claude Code sessions opened
-  on this repo. It is a read-only HTTP endpoint that takes no credentials. Project
-  servers are approved once per user, so the first `claude` run here prompts before
-  the server is loaded.
+- [`.mcp.json`](.mcp.json) — registers two documentation MCP servers for Claude Code
+  sessions opened on this repo: [Triton One](https://docs.triton.one) and
+  [Phoenix](https://docs.phoenix.trade), Ellipsis Labs' Solana perpetuals exchange.
+  Both are HTTP endpoints. Triton's is read-only and takes no credentials. The Phoenix
+  URL (`https://docs.phoenix.trade/mcp`) was added without being reachable from the
+  session that wrote it, so its transport and auth are unconfirmed. Project servers
+  are approved once per user, so the first `claude` run here prompts before either
+  server is loaded.
 
 ## Checks
 
