@@ -7,6 +7,10 @@
     "phoenix-docs": {
       "type": "http",
       "url": "https://docs.phoenix.trade/mcp"
+    },
+    "walletbot": {
+      "type": "http",
+      "url": "https://walletbot.me/bot-relay/public-api/mcp"
     }
   }
 }
