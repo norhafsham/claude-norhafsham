@@ -1,8 +1,16 @@
 /**
  * Core data access logic.
  */
-import { evaluate, evaluateAsync, KNOWN_PATHS, safeString } from '../connection.js';
-import { waitForChartReady } from '../wait.js';
+import { evaluate as _evaluate, evaluateAsync as _evaluateAsync, KNOWN_PATHS, safeString } from '../connection.js';
+import { waitForChartReady as _waitForChartReady } from '../wait.js';
+
+function _resolve(deps) {
+  return {
+    evaluate: deps?.evaluate || _evaluate,
+    evaluateAsync: deps?.evaluateAsync || _evaluateAsync,
+    waitForChartReady: deps?.waitForChartReady || _waitForChartReady,
+  };
+}
 
 const MAX_OHLCV_BARS = 500;
 const MAX_TRADES = 20;
@@ -134,7 +142,8 @@ function buildGraphicsJS(collectionName, mapKey, filter) {
   `;
 }
 
-export async function getOhlcv({ count, summary } = {}) {
+export async function getOhlcv({ count, summary, _deps } = {}) {
+  const { evaluate } = _resolve(_deps);
   const limit = Math.min(count || 100, MAX_OHLCV_BARS);
   let data;
   try {
@@ -181,7 +190,8 @@ export async function getOhlcv({ count, summary } = {}) {
   return { success: true, bar_count: data.bars.length, total_available: data.total_bars, source: data.source, bars: data.bars };
 }
 
-export async function getIndicator({ entity_id }) {
+export async function getIndicator({ entity_id, _deps }) {
+  const { evaluate } = _resolve(_deps);
   const data = await evaluate(`
     (function() {
       var api = ${CHART_API};
@@ -213,7 +223,8 @@ export async function getIndicator({ entity_id }) {
 // strategies, and wait for reportData to populate, so the strategy read tools
 // work even when the panel started closed or the strategy was hidden.
 // Returns { status, unhidden } — unhidden lists strategies made visible.
-async function ensureStrategyTesterReady(maxWaitMs = 6000) {
+async function ensureStrategyTesterReady(maxWaitMs = 6000, _deps) {
+  const { evaluate } = _resolve(_deps);
   const unhidden = await evaluate(`
     (function() {
       ${FIND_STRATEGY_JS}
@@ -241,8 +252,9 @@ async function ensureStrategyTesterReady(maxWaitMs = 6000) {
   return { status, unhidden: unhidden || [] };
 }
 
-export async function getStrategyResults() {
-  const ready = await ensureStrategyTesterReady();
+export async function getStrategyResults({ _deps } = {}) {
+  const { evaluate } = _resolve(_deps);
+  const ready = await ensureStrategyTesterReady(6000, _deps);
   const results = await evaluate(`
     (function() {
       ${FIND_STRATEGY_JS}
@@ -292,9 +304,10 @@ export async function getStrategyResults() {
   };
 }
 
-export async function getTrades({ max_trades } = {}) {
+export async function getTrades({ max_trades, _deps } = {}) {
+  const { evaluate } = _resolve(_deps);
   const limit = Math.min(max_trades || 20, MAX_TRADES);
-  const ready = await ensureStrategyTesterReady();
+  const ready = await ensureStrategyTesterReady(6000, _deps);
   const trades = await evaluate(`
     (function() {
       ${FIND_STRATEGY_JS}
@@ -336,8 +349,9 @@ export async function getTrades({ max_trades } = {}) {
   };
 }
 
-export async function getEquity() {
-  const ready = await ensureStrategyTesterReady();
+export async function getEquity({ _deps } = {}) {
+  const { evaluate } = _resolve(_deps);
+  const ready = await ensureStrategyTesterReady(6000, _deps);
   const equity = await evaluate(`
     (function() {
       ${FIND_STRATEGY_JS}
@@ -367,15 +381,16 @@ export async function getEquity() {
   };
 }
 
-export async function getQuote({ symbol } = {}) {
+export async function getQuote({ symbol, _deps } = {}) {
   // Serialize: chained on _quoteLock so parallel callers run one after another.
   // Catch on the lock chain prevents a single failure from poisoning the chain.
-  const run = _quoteLock.then(() => _getQuoteInternal({ symbol }));
+  const run = _quoteLock.then(() => _getQuoteInternal({ symbol, _deps }));
   _quoteLock = run.then(() => {}, () => {});
   return run;
 }
 
-async function _getQuoteInternal({ symbol } = {}) {
+async function _getQuoteInternal({ symbol, _deps } = {}) {
+  const { evaluate, evaluateAsync, waitForChartReady } = _resolve(_deps);
   const requested = (symbol || '').toString().trim();
   let originalSymbol = null;
   let needsRestore = false;
@@ -449,7 +464,8 @@ async function _getQuoteInternal({ symbol } = {}) {
   }
 }
 
-export async function getDepth() {
+export async function getDepth({ _deps } = {}) {
+  const { evaluate } = _resolve(_deps);
   const data = await evaluate(`
     (function() {
       var domPanel = document.querySelector('[class*="depth"]')
@@ -493,7 +509,8 @@ export async function getDepth() {
   return { success: true, bid_levels: data.bids?.length || 0, ask_levels: data.asks?.length || 0, spread: data.spread, bids: data.bids || [], asks: data.asks || [], raw_values: data.raw_values, note: data.note };
 }
 
-export async function getStudyValues() {
+export async function getStudyValues({ _deps } = {}) {
+  const { evaluate } = _resolve(_deps);
   const data = await evaluate(`
     (function() {
       var chart = window.TradingViewApi._activeChartWidgetWV.value()._chartWidget;
@@ -535,7 +552,8 @@ export async function getStudyValues() {
   return { success: true, study_count: data?.length || 0, studies: data || [] };
 }
 
-export async function getPineLines({ study_filter, verbose } = {}) {
+export async function getPineLines({ study_filter, verbose, _deps } = {}) {
+  const { evaluate } = _resolve(_deps);
   const filter = study_filter || '';
   const raw = await evaluate(buildGraphicsJS('dwglines', 'lines', filter));
   if (!raw || raw.length === 0) return { success: true, study_count: 0, studies: [] };
@@ -559,7 +577,8 @@ export async function getPineLines({ study_filter, verbose } = {}) {
   return { success: true, study_count: studies.length, studies };
 }
 
-export async function getPineLabels({ study_filter, max_labels, verbose } = {}) {
+export async function getPineLabels({ study_filter, max_labels, verbose, _deps } = {}) {
+  const { evaluate } = _resolve(_deps);
   const filter = study_filter || '';
   const raw = await evaluate(buildGraphicsJS('dwglabels', 'labels', filter));
   if (!raw || raw.length === 0) return { success: true, study_count: 0, studies: [] };
@@ -579,7 +598,8 @@ export async function getPineLabels({ study_filter, max_labels, verbose } = {}) 
   return { success: true, study_count: studies.length, studies };
 }
 
-export async function getPineTables({ study_filter } = {}) {
+export async function getPineTables({ study_filter, _deps } = {}) {
+  const { evaluate } = _resolve(_deps);
   const filter = study_filter || '';
   const raw = await evaluate(buildGraphicsJS('dwgtablecells', 'tableCells', filter));
   if (!raw || raw.length === 0) return { success: true, study_count: 0, studies: [] };
@@ -607,7 +627,8 @@ export async function getPineTables({ study_filter } = {}) {
   return { success: true, study_count: studies.length, studies };
 }
 
-export async function getPineBoxes({ study_filter, verbose } = {}) {
+export async function getPineBoxes({ study_filter, verbose, _deps } = {}) {
+  const { evaluate } = _resolve(_deps);
   const filter = study_filter || '';
   const raw = await evaluate(buildGraphicsJS('dwgboxes', 'boxes', filter));
   if (!raw || raw.length === 0) return { success: true, study_count: 0, studies: [] };
